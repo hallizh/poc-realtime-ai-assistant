@@ -9,7 +9,7 @@ import time
 from .utils.encode_audio import encode_audio
 from .utils.logging import logging, log_ws_event, log_runtime
 from .utils.load_config import setup, get_session_instructions
-from .audio.bidirectional_audio import BidirectionalAudio, play_audio
+from .audio.voice_control import VoiceControl, play_audio
 from .openai.session_update import get_session_update
 from .tools.all_tools import function_map, tool_schema
 
@@ -34,7 +34,7 @@ async def realtime_api():
                 "OpenAI-Beta": "realtime=v1",
             }
 
-            mic = BidirectionalAudio()
+            voice = VoiceControl()
 
             async with websockets.connect(url, extra_headers=headers) as websocket:
                 logging.info("Connected to the server.")
@@ -60,7 +60,7 @@ async def realtime_api():
                             log_ws_event("Incoming", event)
 
                             if event["type"] == "response.created":
-                                mic.start_receiving()
+                                voice.start_receiving()
                                 response_in_progress = True
                             elif event["type"] == "response.output_item.added":
                                 item = event.get("item", {})
@@ -156,10 +156,10 @@ async def realtime_api():
                                 assistant_reply = ""
                                 audio_chunks = []
                                 logging.info("Calling stop_receiving()")
-                                mic.stop_receiving()
+                                voice.stop_receiving()
                             elif event["type"] == "rate_limits.updated":
                                 response_in_progress = False
-                                mic.is_recording = True
+                                voice.is_recording = True
                                 logging.info(
                                     "Resumed recording after rate_limits.updated"
                                 )
@@ -189,7 +189,7 @@ async def realtime_api():
                             elif event["type"] == "input_audio_buffer.speech_started":
                                 logging.info("Speech detected, listening...")
                             elif event["type"] == "input_audio_buffer.speech_stopped":
-                                mic.stop_recording()
+                                voice.stop_recording()
                                 logging.info("Speech ended, processing...")
                                 # await asyncio.sleep(0.5)
 
@@ -208,7 +208,7 @@ async def realtime_api():
                 logging.info(
                     "Conversation started. Speak freely, and the assistant will respond."
                 )
-                mic.start_recording()
+                voice.start_recording()
                 logging.info("Recording started. Listening for speech...")
 
                 try:
@@ -216,8 +216,8 @@ async def realtime_api():
                         await asyncio.sleep(
                             0.1
                         )  # Small delay to accumulate some audio data
-                        if not mic.is_receiving:
-                            audio_data = mic.get_audio_data()
+                        if not voice.is_receiving:
+                            audio_data = voice.get_audio_data()
                             if audio_data and len(audio_data) > 0:
                                 base64_audio = encode_audio(audio_data)
                                 if base64_audio:
@@ -237,8 +237,8 @@ async def realtime_api():
                     logging.info("Keyboard interrupt received. Closing the connection.")
                 finally:
                     exit_event.set()
-                    mic.stop_recording()
-                    mic.close()
+                    voice.stop_recording()
+                    voice.close()
                     await websocket.close()
 
                 # Wait for the WebSocket processing task to complete
@@ -261,8 +261,8 @@ async def realtime_api():
             break  # Exit the loop on unexpected exceptions
         finally:
             if "mic" in locals():
-                mic.stop_recording()
-                mic.close()
+                voice.stop_recording()
+                voice.close()
             if "websocket" in locals():
                 await websocket.close()
 

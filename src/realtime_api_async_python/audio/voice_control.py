@@ -9,7 +9,7 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 24000
 
-class BidirectionalAudio:
+class VoiceControl:
     def __init__(self):
         self.p = pyaudio.PyAudio()
         self.stream = self.p.open(
